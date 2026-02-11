@@ -220,7 +220,7 @@ describe("createTaskHandler", () => {
     expect(gitManager.push).toHaveBeenCalledWith("task/t-1");
   });
 
-  it("does not push on direct strategy", async () => {
+  it("pushes on direct strategy when commit exists", async () => {
     mockRunAgent.mockResolvedValue({
       success: true,
       summary: "Done",
@@ -239,7 +239,7 @@ describe("createTaskHandler", () => {
 
     await handler({ task, onProgress: async () => {} });
 
-    expect(gitManager.push).not.toHaveBeenCalled();
+    expect(gitManager.push).toHaveBeenCalledWith("main");
   });
 
   it("still cleans up if cleanup itself fails", async () => {

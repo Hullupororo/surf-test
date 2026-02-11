@@ -66,10 +66,7 @@ export function createTaskHandler(deps: OrchestratorDeps): TaskHandler {
         return result;
       }
 
-      if (
-        config.git.branchStrategy === "feature-branch" &&
-        agentResult.commitHash
-      ) {
+      if (agentResult.commitHash) {
         await sendProgress("Pushing changes...");
         await gitManager.push(branch);
       }
