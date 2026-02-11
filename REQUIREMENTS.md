@@ -4,16 +4,21 @@
 
 | Component | Technology | Rationale |
 |---|---|---|
-| Runtime | Bun / Node.js | Fast, TypeScript-native |
+| Runtime | Node.js v24 | Native TypeScript (type-stripping), native `--watch`, native `--env-file`, no build step |
 | Language | TypeScript | Type safety, args-as-object convention |
-| Telegram SDK | grammY or node-telegram-bot-api | Mature, well-documented |
-| AI Engine | Claude API (Anthropic SDK) | Tool use, code generation |
-| Git | simple-git (npm) | Programmatic git operations |
-| Task Queue | BullMQ + Redis (or in-memory for v1) | Sequential task processing |
+| Telegram SDK | grammY | TypeScript-first, middleware pattern, built-in webhook adapters |
+| AI Engine | Claude API (@anthropic-ai/sdk) | Tool use, code generation |
+| Git | simple-git | Programmatic git operations |
+| Task Queue | In-memory (interface-first) | No Redis dep for v1; interface allows BullMQ swap later |
 | Deployment | Platform webhooks (Vercel/Netlify API) | Push-triggered deploys |
-| Server Framework | Hono or Fastify | Lightweight, webhook endpoints |
+| Server Framework | Hono + @hono/node-server | Lightweight (~14KB), TypeScript-first, native grammY adapter |
 | Browser MCP | @playwright/mcp | Visual verification of changes via headless browser |
 | MCP SDK | @modelcontextprotocol/sdk | MCP client for connecting to Playwright MCP server |
+| Storage | better-sqlite3 (with in-memory fallback) | SQLite for task history, zero server deps, WAL mode |
+| Logging | pino (+ pino-pretty for dev) | Structured JSON logging, child loggers per module |
+| Validation | zod | Schema validation for config and API payloads |
+| IDs | nanoid | Compact unique task IDs |
+| Testing | Vitest | Mature mocking/coverage, TypeScript-native, ESM-first |
 
 ---
 
@@ -34,8 +39,11 @@
   - `/rollback` — revert last commit and redeploy
   - `/config` — show/update current repo and deploy config
 - R1.5: Bot must send progress updates during long-running tasks (e.g., "Reading files...", "Making changes...", "Running build...")
-- R1.6: Bot must send final result with summary of changes made
+- R1.6: Bot must send final result with summary of changes made (formatted with files changed, commit hash, summary)
 - R1.7: Bot must handle errors gracefully and report them in user-friendly language
+- R1.8: Bot must support two connection modes: `polling` (default, no public URL needed) and `webhook` (requires `WEBHOOK_URL`)
+- R1.9: In polling mode, bot deletes any existing webhook and starts long-polling
+- R1.10: In webhook mode, bot registers webhook URL with Telegram API automatically on startup
 
 **Files**:
 ```
@@ -212,7 +220,7 @@ src/
   - `direct`: commit directly to main/master
   - `feature-branch`: create branch per task, push, optionally auto-merge
 - R4.4: Generate commit messages from Claude's summary
-- R4.5: Push changes to remote after successful commit
+- R4.5: Always push changes to remote after successful commit (regardless of branch strategy)
 - R4.6: Support rollback: revert last commit and force-push
 - R4.7: Handle merge conflicts by notifying user (no auto-resolve in v1)
 
@@ -238,7 +246,7 @@ src/
 - R5.2: Support deployment platforms via adapter pattern:
   - Vercel (deploy hook or API)
   - Netlify (build hook or API)
-  - Custom webhook (generic POST)
+  - Custom webhook (custom POST)
 - R5.3: Expose webhook endpoint to receive CI/CD callbacks
 - R5.4: Parse build status from webhook payload (platform-specific adapters)
 - R5.5: Map build events back to originating task/Telegram conversation
@@ -255,7 +263,7 @@ src/
     adapters/
       vercel.ts         # Vercel deploy adapter
       netlify.ts        # Netlify deploy adapter
-      generic.ts        # Generic webhook adapter
+      custom.ts         # Custom webhook adapter
   webhook/
     index.ts            # Webhook HTTP server
     parser.ts           # Platform-specific payload parsers
@@ -278,7 +286,7 @@ src/
   - Branch strategy
   - Deploy platform and credentials
   - Claude API key
-- R6.3: Task history persisted to SQLite (or JSON file for v1)
+- R6.3: Task history persisted to SQLite (WAL mode, with in-memory fallback)
 - R6.4: Each task record: `{ id, userMessage, status, summary, filesChanged, commitHash, timestamp }`
 
 **Files**:
@@ -310,6 +318,8 @@ src/
 ```env
 TELEGRAM_BOT_TOKEN=         # Telegram bot API token
 TELEGRAM_ALLOWED_USERS=     # Comma-separated Telegram user IDs
+BOT_MODE=                   # "polling" (default) | "webhook"
+WEBHOOK_URL=                # Required when BOT_MODE=webhook
 ANTHROPIC_API_KEY=          # Claude API key
 REPO_URL=                   # Git remote URL
 REPO_LOCAL_PATH=            # Local clone path
@@ -327,53 +337,34 @@ AGENT_MAX_RETRIES=          # Max retry attempts on failure (default: 3)
 AGENT_TASK_TIMEOUT=         # Task timeout in ms (default: 300000)
 AGENT_DEV_SERVER_CMD=       # Dev server command (default: "npm run dev")
 AGENT_DEV_SERVER_PORT=      # Dev server port (default: 3000)
+
+# Server
+PORT=                       # HTTP server port (default: 4000)
 ```
 
 ---
 
-## Development Phases (Ralph Loop)
+## Development Phases (Ralph Loop) — All Complete
 
-Each phase is implemented using Ralph Loop with a specific prompt and completion promise.
+Each phase was implemented using Ralph Loop with iterative refinement. All 8 phases are complete with 164 tests passing across 20 test files.
 
-### Phase 1: Project Scaffold
-```
-/ralph-loop "Set up the project: package.json, tsconfig, directory structure as defined in REQUIREMENTS.md. Install dependencies. Output <promise>SCAFFOLD COMPLETE</promise> when done." --completion-promise "SCAFFOLD COMPLETE" --max-iterations 5
-```
+| Phase | Module | Status | Tests |
+|---|---|---|---|
+| 1 | Project Scaffold | Done | — |
+| 2 | Telegram Bot Gateway | Done | bot/ (auth, handlers, formatter) |
+| 3 | Git Manager | Done | git/ (clone, branch, rollback, manager) |
+| 4 | Claude Agent | Done | agent/ (tools, tool-handlers, context, retry-loop) |
+| 5 | Task Queue & Orchestrator | Done | queue/ (task, queue, orchestrator) |
+| 6 | Deploy & Webhooks | Done | deploy/ + webhook/ (adapters, parser, mapper, routes) |
+| 7 | Playwright MCP, Prompt Modules, Skills | Done | agent/ (classifier, mcp, skills) |
+| 8 | Integration & E2E | Done | e2e/ (sqlite storage, integration) |
 
-### Phase 2: Telegram Bot Gateway
-```
-/ralph-loop "Implement Module 1 (Telegram Bot Gateway) per REQUIREMENTS.md. Bot should start, respond to messages, and handle commands. Include auth middleware. Write tests. Output <promise>BOT GATEWAY COMPLETE</promise> when all tests pass." --completion-promise "BOT GATEWAY COMPLETE" --max-iterations 15
-```
-
-### Phase 3: Git Manager
-```
-/ralph-loop "Implement Module 4 (Git Manager) per REQUIREMENTS.md. Clone, pull, commit, push, rollback. Write tests with a test repo. Output <promise>GIT MANAGER COMPLETE</promise> when all tests pass." --completion-promise "GIT MANAGER COMPLETE" --max-iterations 15
-```
-
-### Phase 4: Claude Agent
-```
-/ralph-loop "Implement Module 3 (Claude Agent) per REQUIREMENTS.md. Agent receives user message, reads files, makes changes, runs build, commits. Wire up tools. Write tests. Output <promise>AGENT COMPLETE</promise> when all tests pass." --completion-promise "AGENT COMPLETE" --max-iterations 20
-```
-
-### Phase 5: Task Queue & Orchestrator
-```
-/ralph-loop "Implement Module 2 (Task Queue) per REQUIREMENTS.md. Queue tasks, execute sequentially, manage lifecycle. Wire bot -> queue -> agent -> git. Write tests. Output <promise>QUEUE COMPLETE</promise> when all tests pass." --completion-promise "QUEUE COMPLETE" --max-iterations 15
-```
-
-### Phase 6: Deploy & Webhooks
-```
-/ralph-loop "Implement Module 5 (Deploy & Webhooks) per REQUIREMENTS.md. Trigger deploys, receive webhooks, notify via Telegram. Write tests. Output <promise>DEPLOY COMPLETE</promise> when all tests pass." --completion-promise "DEPLOY COMPLETE" --max-iterations 15
-```
-
-### Phase 7: Playwright MCP & Visual Verification
-```
-/ralph-loop "Implement the Playwright MCP integration in src/agent/mcp/. Agent must start a dev server, connect to Playwright MCP in headless mode, navigate to localhost, take snapshots and screenshots, check console errors. Wire browser tools into the agent tool loop. Write tests. Output <promise>BROWSER MCP COMPLETE</promise> when tests pass." --completion-promise "BROWSER MCP COMPLETE" --max-iterations 15
-```
-
-### Phase 8: Integration & E2E
-```
-/ralph-loop "Wire all modules together. Full flow: Telegram message -> queue -> agent -> git -> build -> browser verify -> deploy -> webhook -> Telegram notification with screenshot. Write E2E test. Output <promise>INTEGRATION COMPLETE</promise> when E2E test passes." --completion-promise "INTEGRATION COMPLETE" --max-iterations 20
-```
+Post-implementation fixes applied:
+- Added polling/webhook bot modes
+- Fixed always-push behavior (was feature-branch only)
+- Added final result/error messaging back to Telegram
+- Added graceful shutdown (SIGINT/SIGTERM)
+- Auto-create `data/` directory for SQLite
 
 ---
 
@@ -392,10 +383,10 @@ Each phase is implemented using Ralph Loop with a specific prompt and completion
 
 | Level | Tool | Scope |
 |---|---|---|
-| Unit | Vitest / Bun test | Individual modules (git ops, formatters, parsers) |
+| Unit | Vitest | Individual modules (git ops, formatters, parsers) |
 | Integration | Vitest | Module interactions (bot -> queue -> agent) |
 | Visual | Playwright MCP | Agent verifies changes in headless browser after each task |
-| E2E | Custom script | Full flow with mock Telegram and mock deploy |
+| E2E | Vitest | Full flow with mock Telegram and mock deploy |
 
 ---
 
@@ -404,6 +395,10 @@ Each phase is implemented using Ralph Loop with a specific prompt and completion
 ```
 telegram-bot-developer/
   src/
+    lib/
+      logger.ts            # Pino logger with child logger factory
+      errors.ts            # AppError base class, TaskError, AgentError, GitError subtypes
+      types.ts             # Shared types (TaskStatus, TaskResult, AgentResult)
     bot/
       index.ts
       handlers.ts
@@ -412,6 +407,7 @@ telegram-bot-developer/
     queue/
       index.ts
       task.ts
+      types.ts             # TaskQueue interface, Task type, TaskStatus enum
       orchestrator.ts
     agent/
       index.ts
@@ -445,7 +441,7 @@ telegram-bot-developer/
       adapters/
         vercel.ts
         netlify.ts
-        generic.ts
+        custom.ts
     webhook/
       index.ts
       parser.ts
@@ -469,7 +465,7 @@ telegram-bot-developer/
   .env.example
   package.json
   tsconfig.json
+  vitest.config.ts
   PRD.md
   REQUIREMENTS.md
-  PROMPT.md                # Ralph Loop master prompt
 ```
