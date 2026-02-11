@@ -2,18 +2,18 @@ import { createChildLogger } from "../../lib/logger.ts";
 import { DeployError } from "../../lib/errors.ts";
 import type { DeployAdapter, TriggerResult } from "../index.ts";
 
-const log = createChildLogger("deploy:netlify");
+const log = createChildLogger("deploy:custom");
 
-export function createNetlifyAdapter(hookUrl: string): DeployAdapter {
+export function createCustomAdapter(hookUrl: string): DeployAdapter {
   return {
-    platform: "netlify",
+    platform: "custom",
 
     async trigger(): Promise<TriggerResult> {
       if (!hookUrl) {
-        throw new DeployError("Netlify build hook URL is not configured");
+        throw new DeployError("Custom deploy hook URL is not configured");
       }
 
-      log.info({ hookUrl }, "Triggering Netlify deploy");
+      log.info({ hookUrl }, "Triggering custom deploy");
 
       const response = await fetch(hookUrl, {
         method: "POST",
@@ -22,15 +22,15 @@ export function createNetlifyAdapter(hookUrl: string): DeployAdapter {
 
       if (!response.ok) {
         throw new DeployError(
-          `Netlify build hook returned ${response.status}: ${await response.text()}`,
+          `Custom deploy hook returned ${response.status}: ${await response.text()}`,
         );
       }
 
-      log.info("Netlify deploy triggered");
+      log.info("Custom deploy triggered");
 
       return {
-        deployId: "netlify-build",
-        platform: "netlify",
+        deployId: "custom-deploy",
+        platform: "custom",
       };
     },
   };

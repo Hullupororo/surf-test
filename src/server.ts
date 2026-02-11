@@ -1,8 +1,15 @@
 import { Hono } from "hono";
 import type { Bot } from "grammy";
 import { mountBotWebhook } from "./bot/index.ts";
+import { createWebhookRoutes } from "./webhook/index.ts";
+import type { WebhookHandlerDeps } from "./webhook/index.ts";
 
-export function createApp(opts?: { bot?: Bot }) {
+export interface AppOptions {
+  bot?: Bot;
+  webhook?: WebhookHandlerDeps;
+}
+
+export function createApp(opts?: AppOptions) {
   const app = new Hono();
 
   app.get("/health", (c) => {
@@ -13,11 +20,14 @@ export function createApp(opts?: { bot?: Bot }) {
     mountBotWebhook({ app, bot: opts.bot, path: "/webhook/telegram" });
   }
 
-  // TODO: Phase 6 — Wire deploy webhook handlers
-  app.post("/webhook/deploy/:platform", (c) => {
-    const platform = c.req.param("platform");
-    return c.json({ platform, received: true });
-  });
+  if (opts?.webhook) {
+    const webhookRoutes = createWebhookRoutes(opts.webhook);
+    app.route("/webhook/deploy", webhookRoutes);
+  } else {
+    app.post("/webhook/deploy/:platform", (c) => {
+      return c.json({ error: "Webhook handler not configured" }, 503);
+    });
+  }
 
   return app;
 }
