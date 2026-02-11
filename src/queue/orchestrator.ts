@@ -4,6 +4,7 @@ import type { Storage } from "../storage/index.ts";
 import type { GitManager } from "../git/index.ts";
 import type { AppConfig } from "../config/schema.ts";
 import { runAgent } from "../agent/index.ts";
+import { formatTaskResult, formatError } from "../bot/formatter.ts";
 import { createChildLogger } from "../lib/logger.ts";
 
 const log = createChildLogger("orchestrator");
@@ -63,6 +64,7 @@ export function createTaskHandler(deps: OrchestratorDeps): TaskHandler {
         };
         storage.saveTaskResult(result);
         storage.updateTask(task.id, { status: "failed" });
+        await sendProgress(formatError(agentResult.summary));
         return result;
       }
 
@@ -83,6 +85,7 @@ export function createTaskHandler(deps: OrchestratorDeps): TaskHandler {
 
       storage.saveTaskResult(result);
       storage.updateTask(task.id, { status: "completed" });
+      await sendProgress(formatTaskResult(result));
       log.info({ taskId: task.id }, "Task orchestration complete");
       return result;
     } catch (err) {
@@ -108,6 +111,7 @@ export function createTaskHandler(deps: OrchestratorDeps): TaskHandler {
 
       storage.saveTaskResult(result);
       storage.updateTask(task.id, { status: "failed" });
+      await sendProgress(formatError(errorMsg));
       return result;
     }
   };
