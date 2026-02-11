@@ -1,6 +1,7 @@
+import { mkdirSync } from "node:fs";
 import { serve } from "@hono/node-server";
 import { createApp } from "./server.ts";
-import { createBot } from "./bot/index.ts";
+import { createBot, startPolling, registerWebhook } from "./bot/index.ts";
 import { loadConfig } from "./config/index.ts";
 import { createMemoryStorage } from "./storage/memory.ts";
 import { createSqliteStorage } from "./storage/sqlite.ts";
@@ -16,7 +17,10 @@ const log = createChildLogger("main");
 async function main() {
   const config = loadConfig();
 
-  // Storage: SQLite if path configured, otherwise in-memory
+  // Ensure data directory exists for SQLite
+  mkdirSync("data", { recursive: true });
+
+  // Storage: SQLite with in-memory fallback
   let storage: Storage;
   try {
     storage = createSqliteStorage("data/tasks.sqlite");
@@ -56,7 +60,7 @@ async function main() {
 
   // Server with webhook routes
   const app = createApp({
-    bot,
+    bot: config.telegram.botMode === "webhook" ? bot : undefined,
     webhook: {
       storage,
       webhookSecret: config.deploy.webhookSecret,
@@ -88,6 +92,28 @@ async function main() {
   serve({ fetch: app.fetch, port: config.server.port }, (info) => {
     log.info(`Server running on http://localhost:${info.port}`);
   });
+
+  // Start bot based on mode
+  if (config.telegram.botMode === "webhook") {
+    const webhookUrl =
+      config.telegram.webhookUrl ||
+      `http://localhost:${config.server.port}/webhook/telegram`;
+    await registerWebhook({ bot, url: webhookUrl });
+    log.info("Bot running in webhook mode");
+  } else {
+    await startPolling(bot);
+    log.info("Bot running in polling mode");
+  }
+
+  // Graceful shutdown
+  const shutdown = () => {
+    log.info("Shutting down...");
+    queue.stop();
+    bot.stop();
+    process.exit(0);
+  };
+  process.on("SIGINT", shutdown);
+  process.on("SIGTERM", shutdown);
 }
 
 main().catch((err) => {

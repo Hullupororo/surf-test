@@ -3,6 +3,8 @@ import { z } from "zod";
 const telegramSchema = z.object({
   botToken: z.string().min(1),
   allowedUsers: z.array(z.number()),
+  botMode: z.enum(["polling", "webhook"]).default("polling"),
+  webhookUrl: z.string().default(""),
 });
 
 const anthropicSchema = z.object({

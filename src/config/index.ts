@@ -8,6 +8,8 @@ export function loadConfig(): AppConfig {
     telegram: {
       botToken: process.env["TELEGRAM_BOT_TOKEN"] ?? "",
       allowedUsers: parseNumberList(process.env["TELEGRAM_ALLOWED_USERS"]),
+      botMode: process.env["BOT_MODE"] ?? "polling",
+      webhookUrl: process.env["WEBHOOK_URL"] ?? "",
     },
     anthropic: {
       apiKey: process.env["ANTHROPIC_API_KEY"] ?? "",
@@ -28,9 +30,15 @@ export function loadConfig(): AppConfig {
     },
     agent: {
       maxRetries: parseIntOrDefault(process.env["AGENT_MAX_RETRIES"], 3),
-      taskTimeout: parseIntOrDefault(process.env["AGENT_TASK_TIMEOUT"], 300_000),
+      taskTimeout: parseIntOrDefault(
+        process.env["AGENT_TASK_TIMEOUT"],
+        300_000,
+      ),
       devServerCmd: process.env["AGENT_DEV_SERVER_CMD"] ?? "npm run dev",
-      devServerPort: parseIntOrDefault(process.env["AGENT_DEV_SERVER_PORT"], 3000),
+      devServerPort: parseIntOrDefault(
+        process.env["AGENT_DEV_SERVER_PORT"],
+        3000,
+      ),
     },
     server: {
       port: parseIntOrDefault(process.env["PORT"], 4000),
@@ -50,7 +58,10 @@ function parseNumberList(value: string | undefined): number[] {
     .filter((n) => !Number.isNaN(n));
 }
 
-function parseIntOrDefault(value: string | undefined, fallback: number): number {
+function parseIntOrDefault(
+  value: string | undefined,
+  fallback: number,
+): number {
   if (!value) return fallback;
   const parsed = parseInt(value, 10);
   return Number.isNaN(parsed) ? fallback : parsed;

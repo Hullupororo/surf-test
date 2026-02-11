@@ -40,3 +40,19 @@ export function mountBotWebhook(opts: { app: Hono; bot: Bot; path: string }) {
 
   log.info({ path }, "Bot webhook mounted");
 }
+
+export async function startPolling(bot: Bot) {
+  log.info("Starting bot in polling mode");
+  // Delete any existing webhook so polling works
+  await bot.api.deleteWebhook();
+  bot.start({
+    onStart: () => log.info("Bot polling started"),
+  });
+}
+
+export async function registerWebhook(opts: { bot: Bot; url: string }) {
+  const { bot, url } = opts;
+  log.info({ url }, "Registering Telegram webhook");
+  await bot.api.setWebhook(url);
+  log.info("Telegram webhook registered");
+}
