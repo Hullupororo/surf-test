@@ -3,7 +3,7 @@ active: true
 iteration: 1
 max_iterations: 0
 completion_promise: null
-started_at: "2026-02-11T16:13:15Z"
+started_at: "2026-02-11T16:17:25Z"
 ---
 
-Implement Module 5 (Deploy & Webhooks) per REQUIREMENTS.md (R5.1-R5.7). Files to implement: src/deploy/adapters/vercel.ts, src/deploy/adapters/netlify.ts, src/deploy/adapters/custom.ts, src/deploy/index.ts, src/webhook/parser.ts, src/webhook/mapper.ts, src/webhook/index.ts. Write tests in tests/deploy/. All tests must pass. Output <promise>DEPLOY COMPLETE</promise> when all tests pass.
+Implement Module: Playwright MCP & Visual Verification per REQUIREMENTS.md (R3.13-R3.19). Files: src/agent/mcp/index.ts, src/agent/skills/dev-server.ts, src/agent/skills/build-runner.ts, src/agent/skills/deploy-trigger.ts, src/agent/skills/telegram-reporter.ts, src/agent/skills/git-ops.ts, src/agent/prompt-modules/. Write tests. All tests must pass. Output <promise>MCP COMPLETE</promise> when all tests pass.
