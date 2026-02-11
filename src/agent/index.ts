@@ -7,6 +7,7 @@ import { handleToolCall } from "./tool-handlers.ts";
 import type { ToolHandlerDeps } from "./tool-handlers.ts";
 import { buildProjectContext, buildSystemPrompt } from "./context.ts";
 import { runWithRetry } from "./retry-loop.ts";
+import { classifyTask } from "./prompt-modules/classifier.ts";
 import { createChildLogger } from "../lib/logger.ts";
 
 const log = createChildLogger("agent");
@@ -66,7 +67,10 @@ async function executeAgentLoop(opts: {
 
   const client = new Anthropic({ apiKey: config.anthropic.apiKey });
   const context = await buildProjectContext(repoPath);
-  const systemPrompt = buildSystemPrompt({ context });
+  const modules = classifyTask(userMessage);
+  const additionalModules = modules.map((m) => m.prompt);
+  log.info({ modules: modules.map((m) => m.name) }, "Classified task modules");
+  const systemPrompt = buildSystemPrompt({ context, additionalModules });
 
   let userContent = userMessage;
   if (errorContext && attempt > 1) {
