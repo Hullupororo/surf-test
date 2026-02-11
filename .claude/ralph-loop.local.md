@@ -1,9 +1,9 @@
 ---
 active: true
 iteration: 1
-max_iterations: 15
-completion_promise: "GIT MANAGER COMPLETE"
-started_at: "2026-02-11T16:02:53Z"
+max_iterations: 20
+completion_promise: "AGENT COMPLETE"
+started_at: "2026-02-11T16:05:16Z"
 ---
 
-Implement Module 4 (Git Manager) per REQUIREMENTS.md. Read REQUIREMENTS.md for the full spec (R4.1-R4.7). Implement in src/git/: index.ts (GitManager class — main interface), clone.ts (repo cloning and pull), branch.ts (branch strategy logic: direct vs feature-branch), rollback.ts (revert last commit). Use simple-git library. Write tests in tests/git/ using a real temp git repo. All tests must pass. Output <promise>GIT MANAGER COMPLETE</promise> when all tests pass.
+Implement Module 3 (Claude Agent) per REQUIREMENTS.md. This is the core code engine. Implement: src/agent/tools.ts (tool definitions for Claude API tools[] array), src/agent/tool-handlers.ts (tool execution: read_file, write_file, edit_file, run_bash, search_files, glob_files, git_diff, git_commit, project_map, detect_conventions, web_fetch, report_progress), src/agent/context.ts (project context builder), src/agent/retry-loop.ts (internal retry on build failure, max 3 retries), src/agent/index.ts (main agentic loop using Anthropic SDK with tool use). Write tests in tests/agent/. All tests must pass. Output <promise>AGENT COMPLETE</promise> when all tests pass.
